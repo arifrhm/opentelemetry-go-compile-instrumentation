@@ -116,6 +116,16 @@ func findFuncDecl(root *dst.File, funcName, recv string) *dst.FuncDecl {
 	return decls[0]
 }
 
+// FunctionFilter represents the signature filtering contract shared by
+// *rule.InstFuncRule and *rule.InstRawRule.
+type FunctionFilter interface {
+	GetSignature() *rule.FuncSignature
+	GetSignatureContains() *rule.FuncSignature
+	GetResult() string
+	GetLastResult() string
+	GetParam() string
+}
+
 // FindFuncDecl finds the function declaration targeted by r, including
 // name, receiver, and optional signature-filter matching.
 //
@@ -134,16 +144,17 @@ func FindFuncDecl[R rule.InstFuncRule | rule.InstRawRule | rule.FilterDef](
 	var (
 		funcName string
 		recv     string
-		funcRule *rule.InstFuncRule
+		filter   FunctionFilter
 	)
 	switch rr := any(r).(type) {
 	case *rule.InstFuncRule:
 		funcName = rr.Func
 		recv = rr.Recv
-		funcRule = rr
+		filter = rr
 	case *rule.InstRawRule:
 		funcName = rr.Func
 		recv = rr.Recv
+		filter = rr
 	case *rule.FilterDef:
 		funcName = rr.HasFunc
 		recv = rr.HasRecv
@@ -154,11 +165,11 @@ func FindFuncDecl[R rule.InstFuncRule | rule.InstRawRule | rule.FilterDef](
 		return nil, false, nil
 	}
 
-	if funcRule == nil {
+	if filter == nil {
 		return funcDecl, true, nil
 	}
 
-	ok, err := funcDeclMatchesFilters(funcDecl, funcRule, root, resolvedNames)
+	ok, err := funcDeclMatchesFilters(funcDecl, filter, root, resolvedNames)
 	if err != nil {
 		return nil, false, err
 	}
@@ -347,18 +358,24 @@ func FindStructType(root *dst.File, name string) *dst.StructType {
 // Matching is therefore relative to the enclosing file's import declarations.
 func funcDeclMatchesFilters(
 	funcDecl *dst.FuncDecl,
-	r *rule.InstFuncRule,
+	r FunctionFilter,
 	root *dst.File,
 	resolvedNames map[string]string,
 ) (bool, error) {
-	if r.Signature == nil && r.SignatureContains == nil && r.Result == "" && r.LastResult == "" && r.Param == "" {
+	sig := r.GetSignature()
+	sigContains := r.GetSignatureContains()
+	result := r.GetResult()
+	lastResult := r.GetLastResult()
+	param := r.GetParam()
+
+	if sig == nil && sigContains == nil && result == "" && lastResult == "" && param == "" {
 		return true, nil
 	}
 	imports := ImportAliasMap(root, resolvedNames)
 	ft := funcDecl.Type
 
-	if r.Signature != nil {
-		ok, err := matchesExactSignature(ft, r.Signature, imports)
+	if sig != nil {
+		ok, err := matchesExactSignature(ft, sig, imports)
 		if err != nil {
 			return false, err
 		}
@@ -366,8 +383,8 @@ func funcDeclMatchesFilters(
 			return false, nil
 		}
 	}
-	if r.SignatureContains != nil {
-		ok, err := matchesSignatureContains(ft, r.SignatureContains, imports)
+	if sigContains != nil {
+		ok, err := matchesSignatureContains(ft, sigContains, imports)
 		if err != nil {
 			return false, err
 		}
@@ -375,8 +392,8 @@ func funcDeclMatchesFilters(
 			return false, nil
 		}
 	}
-	if r.Result != "" {
-		ok, err := fieldListContainsType(ft.Results, r.Result, imports)
+	if result != "" {
+		ok, err := fieldListContainsType(ft.Results, result, imports)
 		if err != nil {
 			return false, err
 		}
@@ -384,8 +401,8 @@ func funcDeclMatchesFilters(
 			return false, nil
 		}
 	}
-	if r.LastResult != "" {
-		ok, err := matchesLastResult(ft.Results, r.LastResult, imports)
+	if lastResult != "" {
+		ok, err := matchesLastResult(ft.Results, lastResult, imports)
 		if err != nil {
 			return false, err
 		}
@@ -393,8 +410,8 @@ func funcDeclMatchesFilters(
 			return false, nil
 		}
 	}
-	if r.Param != "" {
-		ok, err := fieldListContainsType(ft.Params, r.Param, imports)
+	if param != "" {
+		ok, err := fieldListContainsType(ft.Params, param, imports)
 		if err != nil {
 			return false, err
 		}

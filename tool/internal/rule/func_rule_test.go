@@ -143,6 +143,28 @@ param: string
 			yaml:    `func: MyFunc\ntarget: example.com/pkg\nbefore: MyBefore`,
 			wantErr: true,
 		},
+		{
+			name: "pattern unsupported on inject_hooks",
+			yaml: `
+func: MyFunc
+target: example.com/pkg
+before: MyBefore
+path: example.com/pkg
+pattern: "^x := 1$"
+`,
+			wantErr: true,
+		},
+		{
+			name: "placement unsupported on inject_hooks",
+			yaml: `
+func: MyFunc
+target: example.com/pkg
+before: MyBefore
+path: example.com/pkg
+placement: before
+`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

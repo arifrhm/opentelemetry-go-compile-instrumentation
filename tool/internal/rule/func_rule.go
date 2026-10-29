@@ -60,7 +60,15 @@ type InstFuncRule struct {
 	Result            string         `json:"result,omitempty"             yaml:"result"`
 	LastResult        string         `json:"last_result,omitempty"        yaml:"last_result"`
 	Param             string         `json:"param,omitempty"              yaml:"param"`
+	Pattern           *string        `json:"pattern,omitempty"            yaml:"pattern,omitempty"`
+	Placement         *string        `json:"placement,omitempty"          yaml:"placement,omitempty"`
 }
+
+func (r *InstFuncRule) GetSignature() *FuncSignature         { return r.Signature }
+func (r *InstFuncRule) GetSignatureContains() *FuncSignature { return r.SignatureContains }
+func (r *InstFuncRule) GetResult() string                    { return r.Result }
+func (r *InstFuncRule) GetLastResult() string                { return r.LastResult }
+func (r *InstFuncRule) GetParam() string                     { return r.Param }
 
 // NewInstFuncRule loads and validates an InstFuncRule from YAML data.
 func NewInstFuncRule(data []byte, name string) (*InstFuncRule, error) {
@@ -86,6 +94,12 @@ func (r *InstFuncRule) validate() error {
 	}
 	if strings.TrimSpace(r.Path) == "" {
 		return ex.Newf("path cannot be empty")
+	}
+	if r.Pattern != nil {
+		return ex.Newf("pattern is not supported on inject_hooks rules (only supported on inject_code)")
+	}
+	if r.Placement != nil {
+		return ex.Newf("placement is not supported on inject_hooks rules (only supported on inject_code)")
 	}
 	return nil
 }
