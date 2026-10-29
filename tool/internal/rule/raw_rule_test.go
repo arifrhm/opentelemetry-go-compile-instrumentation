@@ -125,6 +125,44 @@ raw: "println({{ .FuncArgument 0 }})"
 			yaml:    "target: main\nfunc: Bar\nraw: \"println({{ FuncArgument 0 )\"",
 			wantErr: true,
 		},
+		{
+			name:   "raw rule with signature and signature_contains",
+			ruleID: "raw-with-sig",
+			yaml: `
+target: main
+func: Process
+raw: 'println("hello")'
+signature:
+  args: [context.Context, string]
+  returns: [error]
+signature_contains:
+  args: [context.Context]
+`,
+			check: func(t *testing.T, r *InstRawRule) {
+				require.NotNil(t, r.Signature)
+				assert.Equal(t, []string{"context.Context", "string"}, r.Signature.Args)
+				assert.Equal(t, []string{"error"}, r.Signature.Returns)
+				require.NotNil(t, r.SignatureContains)
+				assert.Equal(t, []string{"context.Context"}, r.SignatureContains.Args)
+			},
+		},
+		{
+			name:   "raw rule with result, last_result and param",
+			ruleID: "raw-with-results-param",
+			yaml: `
+target: main
+func: Process
+raw: 'println("hello")'
+result: error
+last_result: error
+param: context.Context
+`,
+			check: func(t *testing.T, r *InstRawRule) {
+				assert.Equal(t, "error", r.Result)
+				assert.Equal(t, "error", r.LastResult)
+				assert.Equal(t, "context.Context", r.Param)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -209,4 +247,16 @@ func TestInstRawRule_Identity(t *testing.T) {
 	diffPositional["placement"] = "after"
 	assert.Equal(t, rawIdentity(t, "r", base()), rawIdentity(t, "r", diffPositional),
 		"rules differing only in pattern/placement must share an identity")
+
+	// Signature filters participate in identity.
+	sigA := base()
+	sigA["signature"] = map[string]any{"args": []any{"context.Context"}, "returns": []any{"error"}}
+	sigB := base()
+	sigB["signature"] = map[string]any{"args": []any{"string"}, "returns": []any{"error"}}
+	assert.NotEqual(t, rawIdentity(t, "sig", sigA), rawIdentity(t, "sig", sigB),
+		"rules differing only in signature filter must have distinct identities")
+	sigC := base()
+	sigC["signature"] = map[string]any{"args": []any{"context.Context"}, "returns": []any{"error"}}
+	assert.Equal(t, rawIdentity(t, "sig", sigA), rawIdentity(t, "sig", sigC),
+		"identical signature filters must yield identical identity")
 }

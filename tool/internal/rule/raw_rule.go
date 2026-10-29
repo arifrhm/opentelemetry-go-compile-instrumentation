@@ -28,12 +28,23 @@ import (
 type InstRawRule struct {
 	InstBaseRule `yaml:",inline"`
 
-	Func      string `json:"func"                yaml:"func"`
-	Recv      string `json:"recv"                yaml:"recv"`
-	Raw       string `json:"raw"                 yaml:"raw"`
-	Pattern   string `json:"pattern,omitempty"   yaml:"pattern,omitempty"`
-	Placement string `json:"placement,omitempty" yaml:"placement,omitempty"`
+	Func              string         `json:"func"                         yaml:"func"`
+	Recv              string         `json:"recv"                         yaml:"recv"`
+	Raw               string         `json:"raw"                          yaml:"raw"`
+	Pattern           string         `json:"pattern,omitempty"            yaml:"pattern,omitempty"`
+	Placement         string         `json:"placement,omitempty"          yaml:"placement,omitempty"`
+	Signature         *FuncSignature `json:"signature,omitempty"          yaml:"signature"`
+	SignatureContains *FuncSignature `json:"signature_contains,omitempty" yaml:"signature_contains"`
+	Result            string         `json:"result,omitempty"             yaml:"result"`
+	LastResult        string         `json:"last_result,omitempty"        yaml:"last_result"`
+	Param             string         `json:"param,omitempty"              yaml:"param"`
 }
+
+func (r *InstRawRule) GetSignature() *FuncSignature         { return r.Signature }
+func (r *InstRawRule) GetSignatureContains() *FuncSignature { return r.SignatureContains }
+func (r *InstRawRule) GetResult() string                    { return r.Result }
+func (r *InstRawRule) GetLastResult() string                { return r.LastResult }
+func (r *InstRawRule) GetParam() string                     { return r.Param }
 
 // NewInstRawRule loads and validates an InstRawRule from YAML data.
 func NewInstRawRule(data []byte, name string) (*InstRawRule, error) {
@@ -77,6 +88,30 @@ func (r *InstRawRule) validate() error {
 // target, version, func, and raw code — never of the rule's name.
 func (r *InstRawRule) Identity() string {
 	enc := func(s string) string { return strconv.Itoa(len(s)) + ":" + s }
-	parts := []string{enc(r.Target.String()), enc(r.Version), enc(r.Func), enc(r.Recv), enc(r.Raw)}
+	encList := func(xs []string) string {
+		encs := make([]string, len(xs))
+		for i, x := range xs {
+			encs[i] = enc(x)
+		}
+		return strconv.Itoa(len(xs)) + ";" + strings.Join(encs, "")
+	}
+	encSig := func(s *FuncSignature) string {
+		if s == nil {
+			return "-"
+		}
+		return "+" + encList(s.Args) + encList(s.Returns)
+	}
+	parts := []string{
+		enc(r.Target.String()),
+		enc(r.Version),
+		enc(r.Func),
+		enc(r.Recv),
+		enc(r.Raw),
+		encSig(r.Signature),
+		encSig(r.SignatureContains),
+		enc(r.Result),
+		enc(r.LastResult),
+		enc(r.Param),
+	}
 	return util.CRC32(strings.Join(parts, ""))
 }

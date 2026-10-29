@@ -176,6 +176,32 @@ func TestFindFuncDeclForRule(t *testing.T) {
 		assert.Equal(t, "Method", fn.Name.Name)
 	})
 
+	t.Run("matches InstRawRule with matching and non-matching signature filters", func(t *testing.T) {
+		rNonMatch := &rule.InstRawRule{
+			Func: "TopLevel",
+			Signature: &rule.FuncSignature{
+				Args: []string{"int"},
+			},
+		}
+		fn, ok, err := FindFuncDecl(file, rNonMatch, nil)
+		require.NoError(t, err)
+		assert.False(t, ok)
+		assert.Nil(t, fn)
+
+		rMatch := &rule.InstRawRule{
+			Func: "TopLevel",
+			Signature: &rule.FuncSignature{
+				Args:    []string{"int", "int"},
+				Returns: []string{"int"},
+			},
+		}
+		fn, ok, err = FindFuncDecl(file, rMatch, nil)
+		require.NoError(t, err)
+		assert.True(t, ok)
+		assert.NotNil(t, fn)
+		assert.Equal(t, "TopLevel", fn.Name.Name)
+	})
+
 	t.Run("returns nil when signature filters do not match", func(t *testing.T) {
 		sig := rule.FuncSignature{Args: []string{"string"}}
 		r := &rule.InstFuncRule{
